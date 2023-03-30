@@ -36,6 +36,7 @@ Our accompanying videos are now available on **YouTube** (click below images to 
 </div>
 
 ## 2. Prerequisited
+Note: Instructions to fix errors in setting up dependedncies have been added from [this resolved issue](http://www.google.fr/). 
 
 ### 2.1 Ubuntu and ROS
 
@@ -61,6 +62,17 @@ mkdir build && cd build && cmake ..
 make
 sudo make install
 ```
+Fixing errors 
+* Had error with assigning a complex number in so2.cpp, something like:
+  * error: lvalue required as left operand of assignment...
+  * unit_complex_.real() = 1.;
+  * unit_complex_.imag() = 0.;
+  
+* It's a "known issue" and solved by replacing the 2 lines above with:
+  * unit_complex_ = std::complex<double>(1,0);
+
+Sophus now compiled!
+
 
 ### 2.4 Vikit
 
@@ -70,6 +82,18 @@ Vikit contains camera models, some math and interpolation functions that we need
 cd catkin_ws/src
 git clone https://github.com/uzh-rpg/rpg_vikit.git
 ```
+Fixing errors
+* There are various errors where the compiler complains that parameters like CV_RANSAC are not declared.
+* The solution is to update the syntax from CV_... to cv::..., specifically. In .cpp files located at .../fast_livo_ws/src/rpg_vikit/vikit_common/src
+  * In homography.cpp (line 48)
+  * CV_RANSAC -> cv::RANSAC
+  * In pinhole_camera.cpp (line 112)
+  * CV_INTER_LINEAR -> cv::INTER_LINEAR
+  * In img_align.cpp (lines 237 & 437)
+  * CV_WINDOW_AUTOSIZE -> cv::WINDOW_AUTOSIZE
+
+VIKit now compiled!
+
 
 ### 2.5 **livox_ros_driver**
 
