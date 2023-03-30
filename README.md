@@ -64,12 +64,16 @@ sudo make install
 ```
 Fixing errors 
 * Had error with assigning a complex number in so2.cpp, something like:
-  * error: lvalue required as left operand of assignment...
-  * unit_complex_.real() = 1.;
-  * unit_complex_.imag() = 0.;
+```
+    error: lvalue required as left operand of assignment...
+    unit_complex_.real() = 1.;
+    unit_complex_.imag() = 0.;
+```
   
 * It's a "known issue" and solved by replacing the 2 lines above with:
-  * unit_complex_ = std::complex<double>(1,0);
+```
+    unit_complex_ = std::complex<double>(1,0);
+```
 
 Sophus now compiled!
 
