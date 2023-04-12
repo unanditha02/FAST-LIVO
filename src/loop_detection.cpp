@@ -23,8 +23,10 @@ void LoopDetection::cloud_cb(const sensor_msgs::PointCloud2 &input)
     keyframe_counter_ = keyframe_counter_ % NUM_FRAMES_PER_KEYFRAME;
     t_ = input.header.stamp.toSec();
     calculateNormals();
-    calculateFPFH();
-    ROS_INFO("Point cloud point: %f, %f, %f", point_cloud_in_->points[0].x, point_cloud_in_->points[0].y, point_cloud_in_->points[0].z);
+    calculateFPFH(); // Calculates FPFH for every point, normalizes, then sums to represent keyframe, normalizes
+    //Compare against previous keyframe FPFHs
+    ROS_INFO("Number of points: %ld", point_cloud_in_->points.size());
+    // ROS_INFO("Point cloud point: %f, %f, %f", point_cloud_in_->points[0].x, point_cloud_in_->points[0].y, point_cloud_in_->points[0].z);
   }
   ++keyframe_counter_;
 }
@@ -44,6 +46,18 @@ void LoopDetection::calculateNormals()
 
   // Compute the features
   ne_.compute(*normals_);
+
+  auto norms_it = normals_->begin();
+  auto pc_it = point_cloud_in_->begin();
+  for (; norms_it != normals_->end(); ++norms_it, ++pc_it)
+  {
+    if (!pcl::isFinite<pcl::Normal>(*norms_it))
+    {
+      normals_->erase(norms_it--);
+      point_cloud_in_->erase(pc_it--);
+      // ROS_INFO("Erased point");
+    }
+  }
 }
 
 void LoopDetection::calculateFPFH()
@@ -65,10 +79,62 @@ void LoopDetection::calculateFPFH()
   // IMPORTANT: the radius used here has to be larger than the radius used to estimate the surface normals!!!
   fpfh_.setRadiusSearch(FPFH_RADIUS);
 
+  for (int i = 0; i < normals_->size(); i++)
+  {
+    if (!pcl::isFinite<pcl::Normal>((*normals_)[i]))
+    {
+      PCL_WARN("normals[%d] is not finite\n", i);
+    }
+  }
+
   // Compute the features
   fpfh_.compute(*fpfhs);
+  // ROS_INFO("Printing histogram");
+
+  // Normalizing the FPFHs of all points
+  for (int j = 0; j < fpfhs->points.size(); ++j)
+  {
+    float sum = 0;
+    for (float f : fpfhs->points[j].histogram)
+    {
+      sum += f;
+    }
+    for (int i = 0; i < fpfhs->points[j].descriptorSize(); ++i)
+    {
+      fpfhs->points[j].histogram[i] =  fpfhs->points[j].histogram[i] / sum;
+    }
+  }
+  
+  // Declaring summed FPFH to store FPFH of entire keyframe
+  pcl::FPFHSignature33 summed_fpfh;
+
+  // Summing FPFHs for Keyframe
+  for (int j = 0; j < fpfhs->points.size(); ++j)
+  {
+    for (int i = 0; i < fpfhs->points[j].descriptorSize(); ++i)
+    {
+      summed_fpfh.histogram[i] += fpfhs->points[j].histogram[i];
+    }
+  }
+
+  // Normalizing Keyframe FPFH
+  float sum = 0;
+  for (int i = 0; i < summed_fpfh.descriptorSize(); ++i)
+  {
+    sum += summed_fpfh.histogram[i];
+  }
+  for (int i = 0; i < summed_fpfh.descriptorSize(); ++i)
+  {
+    summed_fpfh.histogram[i] = summed_fpfh.histogram[i] / sum;
+  }
 
   keyframe_fpfhs_.insert({t_, fpfhs});
+  summed_keyframe_fpfhs_.insert({t_, summed_fpfh});
+}
+
+double LoopDetection::compareFPFHs(pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfh1, pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfh2)
+{
+  return 0;
 }
 
 int main(int argc, char **argv)
