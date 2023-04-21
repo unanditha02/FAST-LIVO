@@ -4,7 +4,7 @@ LoopDetection::LoopDetection()
 {
   point_cloud_in_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
   normals_ = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>());
-  keyframe_counter_ = 0;
+  keyframe_counter_ = NUM_FRAMES_PER_KEYFRAME + 1;
   timer_ = n_.createTimer(ros::Duration(1.0 / PLANNER_RATE), &LoopDetection::timerCallback, this);
   // /cloud_registered
   cloud_in_sub_ = n_.subscribe("/cloud_registered", 200000, &LoopDetection::cloud_cb, this);
@@ -12,7 +12,7 @@ LoopDetection::LoopDetection()
 
 void LoopDetection::timerCallback(const ros::TimerEvent &)
 {
-  ROS_INFO("In timer!");
+  // ROS_INFO("In timer!");
 }
 
 void LoopDetection::cloud_cb(const sensor_msgs::PointCloud2 &input)
@@ -92,21 +92,31 @@ void LoopDetection::calculateFPFH()
   // ROS_INFO("Printing histogram");
 
   // Normalizing the FPFHs of all points
-  for (int j = 0; j < fpfhs->points.size(); ++j)
+  for (auto p_it = fpfhs->begin(); p_it != fpfhs->end(); ++p_it)
   {
     float sum = 0;
-    for (float f : fpfhs->points[j].histogram)
+    for (float f : p_it->histogram)
     {
       sum += f;
     }
-    for (int i = 0; i < fpfhs->points[j].descriptorSize(); ++i)
+    if (!isfinite(sum) || sum == 0)
     {
-      fpfhs->points[j].histogram[i] =  fpfhs->points[j].histogram[i] / sum;
+      // ROS_INFO("Sum is not finite!!!");
+      fpfhs->erase(p_it--);
+      continue;
+    }
+    for (int i = 0; i < p_it->descriptorSize(); ++i)
+    {
+      p_it->histogram[i] =  p_it->histogram[i] / sum;
     }
   }
   
   // Declaring summed FPFH to store FPFH of entire keyframe
   pcl::FPFHSignature33 summed_fpfh;
+  for (int i = 0; i < summed_fpfh.descriptorSize(); ++i)
+  {
+    summed_fpfh.histogram[i] = 0;
+  }
 
   // Summing FPFHs for Keyframe
   for (int j = 0; j < fpfhs->points.size(); ++j)
@@ -121,20 +131,61 @@ void LoopDetection::calculateFPFH()
   float sum = 0;
   for (int i = 0; i < summed_fpfh.descriptorSize(); ++i)
   {
+    // ROS_INFO("hist value: %f", summed_fpfh.histogram[i]);
     sum += summed_fpfh.histogram[i];
   }
+  // ROS_INFO("Sum: %f", sum);
   for (int i = 0; i < summed_fpfh.descriptorSize(); ++i)
   {
     summed_fpfh.histogram[i] = summed_fpfh.histogram[i] / sum;
   }
 
-  keyframe_fpfhs_.insert({t_, fpfhs});
+  
+  std::vector<double> old_keyframe_times;
+  std::vector<pcl::FPFHSignature33> old_keyframes;
+  for (auto key_fpfh : summed_keyframe_fpfhs_)
+  {
+    old_keyframe_times.push_back(key_fpfh.first);
+    old_keyframes.push_back(key_fpfh.second);
+  }
+
+  // #ifdef MP_EN
+  //   ROS_INFO("Using OMP");
+  //   omp_set_num_threads(MP_PROC_NUM);
+  //   #pragma omp parallel for
+  // #endif
+  for (int i = 0; i < old_keyframes.size(); ++i)
+  {
+    double similarity = compareFPFHs(summed_fpfh, old_keyframes[i]);
+    ROS_INFO("Similarity at t=%f: %f", old_keyframe_times[i], similarity);
+  }
+  // keyframe_fpfhs_.insert({t_, fpfhs});
   summed_keyframe_fpfhs_.insert({t_, summed_fpfh});
 }
 
-double LoopDetection::compareFPFHs(pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfh1, pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfh2)
+double LoopDetection::compareFPFHs(pcl::FPFHSignature33 &fpfh1, pcl::FPFHSignature33 &fpfh2)
 {
-  return 0;
+  double mean = 1.0 / fpfh1.descriptorSize();
+  double sum1 = 0;
+  double sum2 = 0;
+  for (int i = 0; i < fpfh1.descriptorSize(); ++i)
+  {
+    sum1 += powf(fpfh1.histogram[i] - mean, 2);
+    sum2 += powf(fpfh2.histogram[i] - mean, 2);
+    // ROS_INFO("fpfh1: %f", fpfh1.histogram[i]);
+    // ROS_INFO("fpfh2: %f", fpfh2.histogram[i]);
+  }
+  double denominator = sqrt(sum1 * sum2);
+  // ROS_INFO("Denom: %f", denominator);
+  // ROS_INFO("sum1: %f", sum1);
+  // ROS_INFO("sum2: %f", sum2);
+  // ROS_INFO("mean: %f", mean);
+  double numerator = 0;
+  for (int i = 0; i < fpfh1.descriptorSize(); ++i)
+  {
+    numerator += (fpfh1.histogram[i] - mean) * (fpfh2.histogram[i] - mean);
+  }
+  return numerator/denominator;
 }
 
 int main(int argc, char **argv)
