@@ -31,6 +31,11 @@ void LoopDetection::cloud_cb(const sensor_msgs::PointCloud2 &input)
   ++keyframe_counter_;
 }
 
+void LoopDetection::path_cb(const nav_msgs::Path &input)
+{
+  path_ = input;
+}
+
 void LoopDetection::calculateNormals()
 {
   // Create the normal estimation class, and pass the input dataset to it
@@ -158,7 +163,33 @@ void LoopDetection::calculateFPFH()
   {
     double similarity = compareFPFHs(summed_fpfh, old_keyframes[i]);
     ROS_INFO("Similarity at t=%f: %f", old_keyframe_times[i], similarity);
+    // If similarity above a certain threshold
+    if (similarity > 0.99)
+    {
+      geometry_msgs::Pose old_pose;
+      // Determine pose at old timestep
+      for (int j = 0; j < path_.poses.size(), ++j)
+      {
+        if (path_.poses[j].header.stamp == old_keyframe_times[i])
+        {
+          old_pose = path_.poses[j].pose;
+          break;
+        }
+      }
+      // Calculate drift
+      double drift; // abs(Old pose - new pose)
+      // If drift is within a certain distance threshold based on difference in time
+      double distancethreshold; // Function which linearly scales with distance
+      if (drift < distancethreshold)
+      {
+        // Print drift over time in coordinate frame values 
+        ROS_INFO("Loop Detected at t = %f, Euclidean drift calculated: %f", old_keyframe_times[i], drift);
+        //Return over a rostopic the drift and old pose graph time
+        break;
+      }
+    }
   }
+
   // keyframe_fpfhs_.insert({t_, fpfhs});
   summed_keyframe_fpfhs_.insert({t_, summed_fpfh});
 }

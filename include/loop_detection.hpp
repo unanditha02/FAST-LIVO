@@ -29,6 +29,7 @@ class LoopDetection
 
     void timerCallback(const ros::TimerEvent&);
     void cloud_cb(const sensor_msgs::PointCloud2 &input);
+    void path_cb(const nav_msgs::Path &input);
     void calculateNormals();
     void calculateFPFH();
     double compareFPFHs(pcl::FPFHSignature33 &fpfh1, pcl::FPFHSignature33 &fpfh2);
@@ -43,6 +44,7 @@ class LoopDetection
     pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfh_;
     std::unordered_map<double, pcl::PointCloud<pcl::FPFHSignature33>::Ptr> keyframe_fpfhs_;
     std::map<double, pcl::FPFHSignature33> summed_keyframe_fpfhs_;
+    nav_msgs::Path path_;
 
     unsigned int keyframe_counter_;
 };
