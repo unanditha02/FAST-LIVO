@@ -203,6 +203,7 @@ nav_msgs::Path path;
 nav_msgs::Odometry odomAftMapped;
 geometry_msgs::Quaternion geoQuat;
 geometry_msgs::PoseStamped msg_body_pose;
+ros::Time poseTime;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 
@@ -703,7 +704,7 @@ void map_incremental()
 
 // PointCloudXYZRGB::Ptr pcl_wait_pub_RGB(new PointCloudXYZRGB(500000, 1));
 PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI());
-void publish_frame_world_rgb(const ros::Publisher & pubLaserCloudFullRes, lidar_selection::LidarSelectorPtr lidar_selector)
+void publish_frame_world_rgb(const ros::Publisher & pubLaserCloudFullRes, lidar_selection::LidarSelectorPtr lidar_selector, ros::Time & poseTime)
 {
     // PointCloudXYZI::Ptr laserCloudFullRes(dense_map_en ? feats_undistort : feats_down_body);
     // int size = laserCloudFullRes->points.size();
@@ -760,6 +761,7 @@ void publish_frame_world_rgb(const ros::Publisher & pubLaserCloudFullRes, lidar_
             pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
         }
         laserCloudmsg.header.stamp = ros::Time::now();//.fromSec(last_timestamp_lidar);
+        poseTime = laserCloudmsg.header.stamp;
         laserCloudmsg.header.frame_id = "camera_init";
         pubLaserCloudFullRes.publish(laserCloudmsg);
         publish_count -= PUBFRAME_PERIOD;
@@ -768,7 +770,7 @@ void publish_frame_world_rgb(const ros::Publisher & pubLaserCloudFullRes, lidar_
     // mtx_buffer_pointcloud.unlock();
 }
 
-void publish_frame_world(const ros::Publisher & pubLaserCloudFullRes)
+void publish_frame_world(const ros::Publisher & pubLaserCloudFullRes, ros::Time & poseTime)
 {
     // PointCloudXYZI::Ptr laserCloudFullRes(dense_map_en ? feats_undistort : feats_down_body);
     // int size = laserCloudFullRes->points.size();
@@ -794,6 +796,7 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFullRes)
         pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
         
         laserCloudmsg.header.stamp = ros::Time::now();//.fromSec(last_timestamp_lidar);
+        poseTime = laserCloudmsg.header.stamp;
         laserCloudmsg.header.frame_id = "camera_init";
         pubLaserCloudFullRes.publish(laserCloudmsg);
         publish_count -= PUBFRAME_PERIOD;
@@ -938,10 +941,11 @@ void publish_mavros(const ros::Publisher & mavros_pose_publisher)
     mavros_pose_publisher.publish(msg_body_pose);
 }
 
-void publish_path(const ros::Publisher pubPath)
+void publish_path(const ros::Publisher pubPath, ros::Time & poseTime)
 {
     set_posestamp(msg_body_pose.pose);
-    msg_body_pose.header.stamp = ros::Time::now();
+    // msg_body_pose.header.stamp = ros::Time::now();
+    msg_body_pose.header.stamp = poseTime;
     msg_body_pose.header.frame_id = "camera_init";
     path.poses.push_back(msg_body_pose);
     pubPath.publish(path);
@@ -1373,7 +1377,7 @@ int main(int argc, char** argv)
                 out_msg.image = img_rgb;
                 img_pub.publish(out_msg.toImageMsg());
 
-                publish_frame_world_rgb(pubLaserCloudFullResRgb, lidar_selector);
+                publish_frame_world_rgb(pubLaserCloudFullResRgb, lidar_selector,poseTime);
                 publish_visual_world_sub_map(pubSubVisualCloud);
                 
                 // *map_cur_frame_point = *pcl_wait_pub;
@@ -1758,11 +1762,11 @@ int main(int argc, char** argv)
         }
         *pcl_wait_pub = *laserCloudWorld;
 
-        publish_frame_world(pubLaserCloudFullRes);
+        publish_frame_world(pubLaserCloudFullRes, poseTime);
         // publish_visual_world_map(pubVisualCloud);
         publish_effect_world(pubLaserCloudEffect);
         // publish_map(pubLaserCloudMap);
-        publish_path(pubPath);
+        publish_path(pubPath, poseTime);
         #ifdef DEPLOY
         publish_mavros(mavros_pose_publisher);
         #endif
