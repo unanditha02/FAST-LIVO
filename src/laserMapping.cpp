@@ -1759,11 +1759,12 @@ int main(int argc, char** argv)
         }
         *pcl_wait_pub = *laserCloudWorld;
 
+        publish_path(pubPath); // MAY BREAK THINGS
         publish_frame_world(pubLaserCloudFullRes);
         // publish_visual_world_map(pubVisualCloud);
         publish_effect_world(pubLaserCloudEffect);
         // publish_map(pubLaserCloudMap);
-        publish_path(pubPath);
+        
         #ifdef DEPLOY
         publish_mavros(mavros_pose_publisher);
         #endif

@@ -11,6 +11,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <unordered_map>
 #include <map>
+#include <nav_msgs/Path.h>
 
 
 #define PLANNER_RATE 10
@@ -23,7 +24,7 @@ class LoopDetection
 
     private:
     // Hyper parameters
-    unsigned int NUM_FRAMES_PER_KEYFRAME = 10;
+    unsigned int NUM_FRAMES_PER_KEYFRAME = 50;
     float NORMALS_DISTANCE = 0.3;
     float FPFH_RADIUS = 5.0;
 
@@ -33,11 +34,13 @@ class LoopDetection
     void calculateNormals();
     void calculateFPFH();
     double compareFPFHs(pcl::FPFHSignature33 &fpfh1, pcl::FPFHSignature33 &fpfh2);
+    double round(double in);
 
     ros::NodeHandle n_;
     ros::Timer timer_;
     double t_;
     ros::Subscriber cloud_in_sub_;
+    ros::Subscriber path_in_sub_;
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_in_;
     pcl::PointCloud<pcl::Normal>::Ptr normals_;
     pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne_;

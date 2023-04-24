@@ -8,6 +8,7 @@ LoopDetection::LoopDetection()
   timer_ = n_.createTimer(ros::Duration(1.0 / PLANNER_RATE), &LoopDetection::timerCallback, this);
   // /cloud_registered
   cloud_in_sub_ = n_.subscribe("/cloud_registered", 200000, &LoopDetection::cloud_cb, this);
+  path_in_sub_ = n_.subscribe("/path",200000, &LoopDetection::path_cb, this);
 }
 
 void LoopDetection::timerCallback(const ros::TimerEvent &)
@@ -164,34 +165,69 @@ void LoopDetection::calculateFPFH()
     double similarity = compareFPFHs(summed_fpfh, old_keyframes[i]);
     ROS_INFO("Similarity at t=%f: %f", old_keyframe_times[i], similarity);
     // If similarity above a certain threshold
-    if (similarity > 0.99)
+    if (similarity > 0.985)
     {
+      if(fabs(old_keyframe_times[i] - t_) < 10.0) continue; // THANKS SASSY
+      // ROS_INFO("Similarity above threshold");
       geometry_msgs::Pose old_pose;
+      geometry_msgs::Pose new_pose;
+      int old_pose_idx;
+      int new_pose_idx;
       // Determine pose at old timestep
-      for (int j = 0; j < path_.poses.size(), ++j)
+      bool new_pose_flag = false;
+      for (int j = 0; j < path_.poses.size(); ++j)
       {
-        if (path_.poses[j].header.stamp == old_keyframe_times[i])
+        // ROS_INFO("%f, %f", path_.poses[j].header.stamp.toSec(), old_keyframe_times[i]);
+        // ROS_INFO("%f, %f", round(path_.poses[j].header.stamp.toSec()), round(old_keyframe_times[i]));
+        if (round(path_.poses[j].header.stamp.toSec()) == round(old_keyframe_times[i]))
         {
           old_pose = path_.poses[j].pose;
-          break;
+          old_pose_idx = j;
+          // ROS_INFO("Found old pose");
+          
+        }
+        if (round(path_.poses[j].header.stamp.toSec()) == round(t_))
+        {
+          new_pose = path_.poses[j].pose;
+          new_pose_idx = j;
+          new_pose_flag = true;
+          // ROS_INFO("Found new pose");s
         }
       }
-      // Calculate drift
-      double drift; // abs(Old pose - new pose)
-      // If drift is within a certain distance threshold based on difference in time
-      double distancethreshold; // Function which linearly scales with distance
-      if (drift < distancethreshold)
+      if(!new_pose_flag){
+        continue;
+      }
+      double distancethreshold = 0;
+      double distance = 0;
+      for (int j = old_pose_idx+1; j < new_pose_idx+1; ++j)
       {
-        // Print drift over time in coordinate frame values 
-        ROS_INFO("Loop Detected at t = %f, Euclidean drift calculated: %f", old_keyframe_times[i], drift);
-        //Return over a rostopic the drift and old pose graph time
-        break;
+        distancethreshold += sqrt(pow(path_.poses[j].pose.position.x - path_.poses[j-1].pose.position.x, 2) + 
+                          pow(path_.poses[j].pose.position.y - path_.poses[j-1].pose.position.y, 2) + 
+                          pow(path_.poses[j].pose.position.z - path_.poses[j-1].pose.position.z, 2)); // abs(Old pose - new pose)
+      }
+      // ROS_INFO("WEE WOO %f", distance);
+      // Calculate distance
+      distance = sqrt(pow(old_pose.position.x - new_pose.position.x, 2) + 
+                          pow(old_pose.position.y - new_pose.position.y, 2) + 
+                          pow(old_pose.position.z - new_pose.position.z, 2)); // abs(Old pose - new pose)
+      // If drift is within a certain distance threshold based on difference in time
+      if (distance < distancethreshold*0.25)
+      {
+      //   // Print drift over time in coordinate frame values 
+        ROS_INFO("Loop Detected at t = %f, Euclidean drift calculated: %f", old_keyframe_times[i], distance);
+      //   //Return over a rostopic the drift and old pose graph time
+      //   break;
       }
     }
   }
 
   // keyframe_fpfhs_.insert({t_, fpfhs});
   summed_keyframe_fpfhs_.insert({t_, summed_fpfh});
+}
+
+double LoopDetection::round(double in)
+{
+  return static_cast<long int>(in * 100.0) / 100.0;
 }
 
 double LoopDetection::compareFPFHs(pcl::FPFHSignature33 &fpfh1, pcl::FPFHSignature33 &fpfh2)
