@@ -114,6 +114,11 @@ add_executable(fastlivo_mapping src/laserMapping.cpp
 target_link_libraries(fastlivo_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} vio ikdtree)
 target_include_directories(fastlivo_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
+add_executable(loop_detection_node src/loop_detection.cpp 
+                                )
+target_link_libraries(loop_detection_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} vio ikdtree)
+target_include_directories(loop_detection_node PRIVATE ${PYTHON_INCLUDE_DIRS})
+
 # add_executable(kd_tree_test include/ikd-Tree/ikd_Tree.cpp src/kd_tree_test.cpp)
 # target_link_libraries(kd_tree_test ${PCL_LIBRARIES})
 
