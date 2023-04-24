@@ -1763,8 +1763,8 @@ int main(int argc, char** argv)
         }
         *pcl_wait_pub = *laserCloudWorld;
 
-        publish_path(pubPath); // MAY BREAK THINGS
-        publish_frame_world(pubLaserCloudFullRes);
+        publish_path(pubPath, poseTime); // MAY BREAK THINGS
+        publish_frame_world(pubLaserCloudFullRes, poseTime);
         // publish_visual_world_map(pubVisualCloud);
         publish_effect_world(pubLaserCloudEffect);
         // publish_map(pubLaserCloudMap);
