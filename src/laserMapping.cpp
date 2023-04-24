@@ -944,8 +944,8 @@ void publish_mavros(const ros::Publisher & mavros_pose_publisher)
 void publish_path(const ros::Publisher pubPath, ros::Time & poseTime)
 {
     set_posestamp(msg_body_pose.pose);
-    // msg_body_pose.header.stamp = ros::Time::now();
-    msg_body_pose.header.stamp = poseTime;
+    msg_body_pose.header.stamp = ros::Time::now();
+    // msg_body_pose.header.stamp = poseTime;
     msg_body_pose.header.frame_id = "camera_init";
     path.poses.push_back(msg_body_pose);
     pubPath.publish(path);
