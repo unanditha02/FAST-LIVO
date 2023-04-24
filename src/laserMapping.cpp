@@ -1224,8 +1224,10 @@ int main(int argc, char** argv)
     p_imu->set_extrinsic(extT, extR);
     p_imu->set_gyr_cov_scale(V3D(gyr_cov_scale, gyr_cov_scale, gyr_cov_scale));
     p_imu->set_acc_cov_scale(V3D(acc_cov_scale, acc_cov_scale, acc_cov_scale));
-    p_imu->set_gyr_bias_cov(V3D(0.00001, 0.00001, 0.00001));
-    p_imu->set_acc_bias_cov(V3D(0.00001, 0.00001, 0.00001));
+    // p_imu->set_gyr_bias_cov(V3D(0.00001, 0.00001, 0.00001));
+    // p_imu->set_acc_bias_cov(V3D(0.00001, 0.00001, 0.00001));
+    p_imu->set_gyr_bias_cov(V3D(-0.0015351229643790084, -0.0013449146576507546, 0.00030127855524786183));
+    p_imu->set_acc_bias_cov(V3D(0.06080652138668933, 0.08353074835853214, 0.057072968234636895));
 
     #ifndef USE_IKFOM
     G.setZero();
