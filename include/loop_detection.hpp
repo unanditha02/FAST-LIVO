@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <map>
 #include <nav_msgs/Path.h>
+#include "fast_livo/global_registration.h"
 
 
 #define PLANNER_RATE 10
@@ -38,6 +39,7 @@ class LoopDetection
 
     ros::NodeHandle n_;
     ros::Timer timer_;
+    ros::ServiceClient client;
     double t_;
     ros::Subscriber cloud_in_sub_;
     ros::Subscriber path_in_sub_;
@@ -46,6 +48,7 @@ class LoopDetection
     pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne_;
     pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfh_;
     std::unordered_map<double, pcl::PointCloud<pcl::FPFHSignature33>::Ptr> keyframe_fpfhs_;
+    std::unordered_map<double, pcl::PointCloud<pcl::PointXYZ>> keyframe_pointclouds_;
     std::map<double, pcl::FPFHSignature33> summed_keyframe_fpfhs_;
     nav_msgs::Path path_;
 

@@ -1,0 +1,7 @@
+<launch>
+<!-- Launch file for loop detection-->
+
+<node name="loop_detection_node" pkg="fast_livo" type="loop_detection_node" output="screen"/>
+<node pkg="fast_livo" type="global_registration.py" name="global_registration" output="screen"/>
+
+</launch> 	

@@ -60,11 +60,12 @@ mapping:
 camera:
     # img_topic: /usb_cam/image_raw
     # img_topic:  /camera/image_color
-    img_topic: /alphasense/cam1/image_raw
+    # img_topic: /alphasense/cam1/image_raw
+    img_topic: /alphasense/cam3/image_raw
     #xiyuan
     #camera 1 to imu transformation
-    Rcl: [-0.0027313,  0.0012467,  0.9999955,
-           0.9999905,  0.0033916,  0.0027270,
-          -0.0033882,  0.9999934, -0.0012560 ]
-    Pcl: [0.0507054642910155, -0.060959522169800155, -0.005930631162279414]
+    Rcl: [ 1, 0, 0,
+           0, 0, 1,
+           0, -1, 0 ]
+    Pcl: [-0.007959549138437914, 0.06467457049779392, -0.006489835360873981]
     

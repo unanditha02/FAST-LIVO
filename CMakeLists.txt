@@ -85,8 +85,14 @@ add_message_files(
   States.msg
 )
 
+add_service_files(
+  FILES
+  global_registration.srv
+)
+
 generate_messages(
  DEPENDENCIES
+ sensor_msgs
  geometry_msgs
 )
 

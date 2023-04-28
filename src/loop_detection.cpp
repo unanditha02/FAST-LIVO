@@ -9,6 +9,7 @@ LoopDetection::LoopDetection()
   // /cloud_registered
   cloud_in_sub_ = n_.subscribe("/cloud_registered", 200000, &LoopDetection::cloud_cb, this);
   path_in_sub_ = n_.subscribe("/path",200000, &LoopDetection::path_cb, this);
+  client = n_.serviceClient<fast_livo::global_registration>("global_registration");
 }
 
 void LoopDetection::timerCallback(const ros::TimerEvent &)
@@ -160,6 +161,9 @@ void LoopDetection::calculateFPFH()
   //   omp_set_num_threads(MP_PROC_NUM);
   //   #pragma omp parallel for
   // #endif
+  bool loop_detected = false;
+  double best_similarity_score = 0;
+  double best_similarity_time = 0;
   for (int i = 0; i < old_keyframes.size(); ++i)
   {
     double similarity = compareFPFHs(summed_fpfh, old_keyframes[i]);
@@ -215,13 +219,35 @@ void LoopDetection::calculateFPFH()
       {
       //   // Print drift over time in coordinate frame values 
         ROS_INFO("Loop Detected at t = %f, Euclidean drift calculated: %f", old_keyframe_times[i], distance);
+        loop_detected = true;
+        if (similarity > best_similarity_score)
+        {
+          best_similarity_score = similarity;
+          best_similarity_time = old_keyframe_times[i];
+        }
       //   //Return over a rostopic the drift and old pose graph time
       //   break;
       }
     }
   }
 
+  if (loop_detected)
+  {
+    fast_livo::global_registration srv;
+    pcl::toROSMsg(keyframe_pointclouds_[best_similarity_time], srv.request.pcl1);
+    pcl::toROSMsg(*point_cloud_in_, srv.request.pcl2);
+    if (client.call(srv))
+    {
+      ROS_INFO("CALLED SUCCESSFULLY!");
+    }
+    else
+    {
+      ROS_ERROR("CALLED UNSUCCESSFULLY!");
+    }
+  }
+  
   // keyframe_fpfhs_.insert({t_, fpfhs});
+  keyframe_pointclouds_.insert({t_, pcl::PointCloud<pcl::PointXYZ>(*point_cloud_in_)});
   summed_keyframe_fpfhs_.insert({t_, summed_fpfh});
 }
 
