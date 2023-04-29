@@ -66,11 +66,11 @@ def convertCloudFromRosToOpen3d(ros_cloud):
             rgb = [convert_rgbUint32_to_tuple(rgb) for x,y,z,rgb in cloud_data ]
 
         # combine
-        open3d_cloud.points = o3d.geometry.Vector3dVector(np.array(xyz))
-        open3d_cloud.colors = o3d.geometry.Vector3dVector(np.array(rgb)/255.0)
+        open3d_cloud.points = o3d.utility.Vector3dVector(np.array(xyz))
+        open3d_cloud.colors = o3d.utility.Vector3dVector(np.array(rgb)/255.0)
     else:
         xyz = [(x,y,z) for x,y,z in cloud_data ] # get xyz
-        open3d_cloud.points = o3d.geometry.Vector3dVector(np.array(xyz))
+        open3d_cloud.points = o3d.utility.Vector3dVector(np.array(xyz))
 
     # return
     return open3d_cloud
@@ -98,7 +98,7 @@ def preprocess_point_cloud(pcd, voxel_size):
 
     radius_feature = voxel_size * 5
     print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
-    pcd_fpfh = o3d.registration.compute_fpfh_feature(
+    pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
         pcd_down,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     return pcd_down, pcd_fpfh
@@ -121,11 +121,11 @@ def execute_fast_global_registration(source_down, target_down, source_fpfh,
     distance_threshold = voxel_size * 0.5
     print(":: Apply fast global registration with distance threshold %.3f" \
             % distance_threshold)
-    result = o3d.registration.registration_fast_based_on_feature_matching(
+    result = o3d.pipelines.registration.registration_fast_based_on_feature_matching(
         source_down, target_down, source_fpfh, target_fpfh,
-        o3d.registration.FastGlobalRegistrationOption(
+        o3d.pipelines.registration.FastGlobalRegistrationOption(
             maximum_correspondence_distance=distance_threshold))
-    return result   #result.transform is a 4x4 numpy array
+    return result   #result.transformation is a 4x4 numpy array
 
 
 def handle_global_registration(req):
@@ -144,10 +144,17 @@ def handle_global_registration(req):
     # print("Fast global registration took %.3f sec.\n" % (time.time() - start))
     draw_registration_result(source_down, target_down,
                              result_fast.transformation)
-    r = R.from_matrix(result_fast.transform[0:3, 0:3])
+    rotation_mat = copy.deepcopy(result_fast.transformation[0:3, 0:3])
+    r = R.from_matrix(rotation_mat)
     t = Transform()
-    t.rotation = r.as_quat()
-    t.translation = result_fast.transform[0:3,-1]
+    t.rotation.x = r.as_quat()[0]
+    t.rotation.y = r.as_quat()[1]
+    t.rotation.z = r.as_quat()[2]
+    t.rotation.w = r.as_quat()[3]
+
+    t.translation.x = result_fast.transformation[0,-1]
+    t.translation.y = result_fast.transformation[1,-1]
+    t.translation.z = result_fast.transformation[2,-1]
 
     return t
 
