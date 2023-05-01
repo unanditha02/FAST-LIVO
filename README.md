@@ -69,7 +69,7 @@ Fixing errors
     unit_complex_.real() = 1.;
     unit_complex_.imag() = 0.;
 ```
-  
+
 * It's a "known issue" and solved by replacing the 2 lines above with:
 ```
     unit_complex_ = std::complex<double>(1,0);
@@ -102,6 +102,22 @@ VIKit now compiled!
 ### 2.5 **livox_ros_driver**
 
 Follow [livox_ros_driver Installation](https://github.com/Livox-SDK/livox_ros_driver).
+
+### 2.6 Ceres Solver
+
+`
+
+```
+cd ~/catkin_ws/src/FAST_LIVO/src/
+mkdir ceres-bin
+cd ceres-bin
+cmake ../ceres-solver-refs_heads_master
+make -j3
+make test
+sudo make install
+```
+
+`
 
 ## 3. Build
 
