@@ -105,19 +105,16 @@ Follow [livox_ros_driver Installation](https://github.com/Livox-SDK/livox_ros_dr
 
 ### 2.6 Ceres Solver
 
-`
-
 ```
 cd ~/catkin_ws/src/FAST_LIVO/src/
-mkdir ceres-bin
-cd ceres-bin
+mkdir ceres_bin
+cd ceres_bin
 cmake ../ceres-solver-refs_heads_master
 make -j3
 make test
 sudo make install
 ```
 
-`
 
 ## 3. Build
 
