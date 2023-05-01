@@ -37,6 +37,8 @@
 #include <math.h>
 #include <thread>
 #include <fstream>
+#include <iostream>
+#include "ros/package.h"
 #include <csignal>
 #include <unistd.h>
 #include <Python.h>
@@ -65,6 +67,7 @@
 #include <opencv2/opencv.hpp>
 #include <vikit/camera_loader.h>
 #include"lidar_selection.h"
+#include <std_msgs/String.h>
 
 #ifdef USE_ikdtree
     #ifdef USE_ikdforest
@@ -89,6 +92,9 @@ float DET_RANGE = 300.0f;
 #else
     const float MOV_THRESHOLD = 1.5f;
 #endif
+
+ofstream file;
+int id_counter = 0;
 
 mutex mtx_buffer;
 condition_variable sig_buffer;
@@ -949,6 +955,68 @@ void publish_path(const ros::Publisher pubPath, ros::Time & poseTime)
     msg_body_pose.header.frame_id = "camera_init";
     path.poses.push_back(msg_body_pose);
     pubPath.publish(path);
+
+    if (file.is_open())
+    {
+        file << "VERTEX_SE3:QUAT " << id_counter << " " << msg_body_pose.pose.position.x
+                                                << " " << msg_body_pose.pose.position.y
+                                                << " " << msg_body_pose.pose.position.z
+                                                << " " << msg_body_pose.pose.orientation.x
+                                                << " " << msg_body_pose.pose.orientation.y
+                                                << " " << msg_body_pose.pose.orientation.z
+                                                << " " << msg_body_pose.pose.orientation.w << std::endl;
+
+        if (path.poses.size() > 1)
+        {
+            geometry_msgs::PoseStamped prev_msg_body_pose = path.poses[path.poses.size()-2];
+            tf::Transform prev_pose;
+            prev_pose.setOrigin(tf::Vector3(prev_msg_body_pose.pose.position.x, prev_msg_body_pose.pose.position.y, prev_msg_body_pose.pose.position.z));
+            prev_pose.setRotation(tf::Quaternion(prev_msg_body_pose.pose.orientation.x, prev_msg_body_pose.pose.orientation.y, prev_msg_body_pose.pose.orientation.z, prev_msg_body_pose.pose.orientation.w));
+            tf::Transform current_pose;
+            current_pose.setOrigin(tf::Vector3(msg_body_pose.pose.position.x, msg_body_pose.pose.position.y, msg_body_pose.pose.position.z));
+            current_pose.setRotation(tf::Quaternion(msg_body_pose.pose.orientation.x, msg_body_pose.pose.orientation.y, msg_body_pose.pose.orientation.z, msg_body_pose.pose.orientation.w));
+            tf::Transform relative_transform = prev_pose.inverseTimes(current_pose);
+            file << "EDGE_SE3:QUAT " << id_counter-1 << " " << id_counter
+                                                    << " " << relative_transform.getOrigin().getX()
+                                                    << " " << relative_transform.getOrigin().getY()
+                                                    << " " << relative_transform.getOrigin().getZ()
+                                                    << " " << relative_transform.getRotation().getX()
+                                                    << " " << relative_transform.getRotation().getY()
+                                                    << " " << relative_transform.getRotation().getZ()
+                                                    << " " << relative_transform.getRotation().getW()
+                                                    << " " << 1
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 1
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 1
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 1
+                                                    << " " << 0
+                                                    << " " << 0
+                                                    << " " << 1
+                                                    << " " << 0
+                                                    << " " << 1 << std::endl;
+                                                    
+        }
+        ++id_counter;
+    }
+}
+
+void constraint_cbk(const std_msgs::String& msg)
+{
+    if (file.is_open())
+    {
+        file << msg.data.c_str() << std::endl;
+    }
 }
 
 #ifdef USE_IKFOM
@@ -1143,6 +1211,7 @@ int main(int argc, char** argv)
         nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
     ros::Subscriber sub_imu = nh.subscribe(imu_topic, 200000, imu_cbk);
     ros::Subscriber sub_img = nh.subscribe(img_topic, 200000, img_cbk);
+    ros::Subscriber sub_pose_graph_constraint = nh.subscribe("pose_graph_constraint", 10000, constraint_cbk);
     image_transport::Publisher img_pub = it.advertise("/rgb_img", 1);
     ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered", 100);
@@ -1160,6 +1229,8 @@ int main(int argc, char** argv)
             ("/aft_mapped_to_init", 10);
     ros::Publisher pubPath          = nh.advertise<nav_msgs::Path> 
             ("/path", 10);
+
+    file.open(ros::package::getPath("fast_livo") + "/src/g2o_pose_files/input_poses.g2o");
 
 #ifdef DEPLOY
     ros::Publisher mavros_pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
@@ -1844,6 +1915,7 @@ int main(int argc, char** argv)
         s_vec7.push_back(s_plot7[i]);                             
     }
     fclose(fp2);
+    file.close();
     if (!t.empty())
     {
         // plt::named_plot("incremental time",t,s_vec2);

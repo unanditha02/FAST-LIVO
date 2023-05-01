@@ -10,6 +10,7 @@ LoopDetection::LoopDetection()
   cloud_in_sub_ = n_.subscribe("/cloud_registered", 200000, &LoopDetection::cloud_cb, this);
   path_in_sub_ = n_.subscribe("/path",200000, &LoopDetection::path_cb, this);
   client = n_.serviceClient<fast_livo::global_registration>("global_registration");
+  pose_graph_constraint_pub_ = n_.advertise<std_msgs::String>("pose_graph_constraint", 1000);
 }
 
 void LoopDetection::timerCallback(const ros::TimerEvent &)
@@ -164,6 +165,10 @@ void LoopDetection::calculateFPFH()
   bool loop_detected = false;
   double best_similarity_score = 0;
   double best_similarity_time = 0;
+  int best_old_pose_idx;
+  int best_new_pose_idx;
+  geometry_msgs::Pose best_old_pose;
+  geometry_msgs::Pose best_new_pose;
   for (int i = 0; i < old_keyframes.size(); ++i)
   {
     double similarity = compareFPFHs(summed_fpfh, old_keyframes[i]);
@@ -224,6 +229,10 @@ void LoopDetection::calculateFPFH()
         {
           best_similarity_score = similarity;
           best_similarity_time = old_keyframe_times[i];
+          best_old_pose_idx = old_pose_idx;
+          best_old_pose = path_.poses[best_old_pose_idx].pose;
+          best_new_pose_idx = new_pose_idx;
+          best_new_pose = path_.poses[best_new_pose_idx].pose;
         }
       //   //Return over a rostopic the drift and old pose graph time
       //   break;
@@ -239,6 +248,50 @@ void LoopDetection::calculateFPFH()
     if (client.call(srv))
     {
       ROS_INFO("CALLED SUCCESSFULLY!");
+      // srv.response.transform
+      tf::Transform world_transform;
+      world_transform.setOrigin(tf::Vector3(srv.response.transform.translation.x, srv.response.transform.translation.y, srv.response.transform.translation.z));
+      world_transform.setRotation(tf::Quaternion(srv.response.transform.rotation.x, srv.response.transform.rotation.y, srv.response.transform.rotation.z, srv.response.transform.rotation.w));
+      tf::Transform prev_pose;
+      prev_pose.setOrigin(tf::Vector3(best_old_pose.position.x, best_old_pose.position.y, best_old_pose.position.z));
+      prev_pose.setRotation(tf::Quaternion(best_old_pose.orientation.x, best_old_pose.orientation.y, best_old_pose.orientation.z, best_old_pose.orientation.w));
+      tf::Transform current_pose;
+      current_pose.setOrigin(tf::Vector3(best_new_pose.position.x, best_new_pose.position.y, best_new_pose.position.z));
+      current_pose.setRotation(tf::Quaternion(best_new_pose.orientation.x, best_new_pose.orientation.y, best_new_pose.orientation.z, best_new_pose.orientation.w));
+      tf::Transform relative_transform = prev_pose.inverseTimes(world_transform.inverseTimes(current_pose));
+      std_msgs::String msg;
+      msg.data = "EDGE_SE3:QUAT " + std::to_string(best_old_pose_idx) + " " + std::to_string(best_new_pose_idx)
+                                                + " " + std::to_string(relative_transform.getOrigin().getX())
+                                                + " " + std::to_string(relative_transform.getOrigin().getY())
+                                                + " " + std::to_string(relative_transform.getOrigin().getZ())
+                                                + " " + std::to_string(relative_transform.getRotation().getX())
+                                                + " " + std::to_string(relative_transform.getRotation().getY())
+                                                + " " + std::to_string(relative_transform.getRotation().getZ())
+                                                + " " + std::to_string(relative_transform.getRotation().getW())
+                                                + " " + std::to_string(1)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(1)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(1)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(1)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(1)
+                                                + " " + std::to_string(0)
+                                                + " " + std::to_string(1);
+      ROS_INFO("Sending constraint!");
+      ROS_INFO("%s", msg.data.c_str());
+      pose_graph_constraint_pub_.publish(msg);
     }
     else
     {

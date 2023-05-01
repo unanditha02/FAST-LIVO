@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <map>
 #include <nav_msgs/Path.h>
+#include <std_msgs/String.h>
+#include <string> 
 #include "fast_livo/global_registration.h"
 
 
@@ -43,6 +45,7 @@ class LoopDetection
     double t_;
     ros::Subscriber cloud_in_sub_;
     ros::Subscriber path_in_sub_;
+    ros::Publisher pose_graph_constraint_pub_;
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_in_;
     pcl::PointCloud<pcl::Normal>::Ptr normals_;
     pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne_;

@@ -91,12 +91,12 @@ def preprocess_point_cloud(pcd, voxel_size):
     print(":: Downsample with a voxel size %.3f." % voxel_size)
     pcd_down = pcd.voxel_down_sample(voxel_size)
 
-    radius_normal = voxel_size * 2
+    radius_normal = voxel_size * 30
     print(":: Estimate normal with search radius %.3f." % radius_normal)
     pcd_down.estimate_normals(
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
 
-    radius_feature = voxel_size * 5
+    radius_feature = voxel_size * 50
     print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
     pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
         pcd_down,
@@ -107,9 +107,9 @@ def prepare_dataset(source, target, voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
     # source = o3d.io.read_point_cloud("../../TestData/ICP/cloud_bin_0.pcd")
     # target = o3d.io.read_point_cloud("../../TestData/ICP/cloud_bin_1.pcd")
-    trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
-                             [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    source.transform(trans_init)
+    # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
+    #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    # source.transform(trans_init)
     draw_registration_result(source, target, np.identity(4))
 
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
@@ -118,7 +118,7 @@ def prepare_dataset(source, target, voxel_size):
 
 def execute_fast_global_registration(source_down, target_down, source_fpfh,
                                      target_fpfh, voxel_size):
-    distance_threshold = voxel_size * 0.5
+    distance_threshold = voxel_size * 1.5
     print(":: Apply fast global registration with distance threshold %.3f" \
             % distance_threshold)
     result = o3d.pipelines.registration.registration_fast_based_on_feature_matching(
@@ -127,6 +127,15 @@ def execute_fast_global_registration(source_down, target_down, source_fpfh,
             maximum_correspondence_distance=distance_threshold))
     return result   #result.transformation is a 4x4 numpy array
 
+def refine_registration(source, target, source_fpfh, target_fpfh, voxel_size, result_fast):
+    distance_threshold = voxel_size * 0.1
+    print(":: Point-to-plane ICP registration is applied on original point")
+    print("   clouds to refine the alignment. This time we use a strict")
+    print("   distance threshold %.3f." % distance_threshold)
+    result = o3d.pipelines.registration.registration_icp(
+        source, target, distance_threshold, np.identity(4),
+        o3d.pipelines.registration.TransformationEstimationPointToPlane())
+    return result
 
 def handle_global_registration(req):
     # print("Returning [%s + %s = %s]"%(req.a, req.b, (req.a + req.b)))
@@ -141,10 +150,14 @@ def handle_global_registration(req):
     result_fast = execute_fast_global_registration(source_down, target_down,
                                                    source_fpfh, target_fpfh,
                                                    voxel_size)
+    
+    result_icp = refine_registration(source_down, target_down, source_fpfh, target_fpfh,
+                                     voxel_size, result_fast)
     # print("Fast global registration took %.3f sec.\n" % (time.time() - start))
     draw_registration_result(source_down, target_down,
-                             result_fast.transformation)
-    rotation_mat = copy.deepcopy(result_fast.transformation[0:3, 0:3])
+                             result_icp.transformation)
+    print(result_icp.transformation)
+    rotation_mat = copy.deepcopy(result_icp.transformation[0:3, 0:3])
     r = R.from_matrix(rotation_mat)
     t = Transform()
     t.rotation.x = r.as_quat()[0]
@@ -152,9 +165,9 @@ def handle_global_registration(req):
     t.rotation.z = r.as_quat()[2]
     t.rotation.w = r.as_quat()[3]
 
-    t.translation.x = result_fast.transformation[0,-1]
-    t.translation.y = result_fast.transformation[1,-1]
-    t.translation.z = result_fast.transformation[2,-1]
+    t.translation.x = result_icp.transformation[0,-1]
+    t.translation.y = result_icp.transformation[1,-1]
+    t.translation.z = result_icp.transformation[2,-1]
 
     return t
 
