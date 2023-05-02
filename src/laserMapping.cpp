@@ -101,6 +101,7 @@ ofstream file2;
 bool firstPose = true;
 int id_counter = 0;
 std::unordered_map<int, int> path_to_odom_map;
+ros::Time last_lidar_timestep;
 
 mutex mtx_buffer;
 condition_variable sig_buffer;
@@ -443,6 +444,7 @@ void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg)
     // last_timestamp_lidar = msg->header.stamp.toSec() - 0.1;
     time_buffer.push_back(msg->header.stamp.toSec());
     last_timestamp_lidar = msg->header.stamp.toSec();
+    last_lidar_timestep = msg->header.stamp;
     mtx_buffer.unlock();
     sig_buffer.notify_all();
 }
@@ -945,25 +947,115 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
     // br.sendTransform( tf::StampedTransform( transform, odomAftMapped.header.stamp, "camera_init", "aft_mapped" ) );
     pubOdomAftMapped.publish(odomAftMapped);
 
+    // if (file.is_open())
+    // {
+    //     file << "VERTEX_SE3:QUAT " << id_counter << " " << odomAftMapped.pose.pose.position.x
+    //                                             << " " << odomAftMapped.pose.pose.position.y
+    //                                             << " " << odomAftMapped.pose.pose.position.z
+    //                                             << " " << odomAftMapped.pose.pose.orientation.x
+    //                                             << " " << odomAftMapped.pose.pose.orientation.y
+    //                                             << " " << odomAftMapped.pose.pose.orientation.z
+    //                                             << " " << odomAftMapped.pose.pose.orientation.w << std::endl;
+
+    //     if (!firstPose)
+    //     {
+    //         geometry_msgs::Pose prev_msg_body_pose = prev_pose.pose.pose;
+    //         tf::Transform prev_pose;
+    //         prev_pose.setOrigin(tf::Vector3(prev_msg_body_pose.position.x, prev_msg_body_pose.position.y, prev_msg_body_pose.position.z));
+    //         prev_pose.setRotation(tf::Quaternion(prev_msg_body_pose.orientation.x, prev_msg_body_pose.orientation.y, prev_msg_body_pose.orientation.z, prev_msg_body_pose.orientation.w));
+    //         tf::Transform current_pose;
+    //         current_pose.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x, odomAftMapped.pose.pose.position.y, odomAftMapped.pose.pose.position.z));
+    //         current_pose.setRotation(tf::Quaternion(odomAftMapped.pose.pose.orientation.x, odomAftMapped.pose.pose.orientation.y, odomAftMapped.pose.pose.orientation.z, odomAftMapped.pose.pose.orientation.w));
+    //         tf::Transform relative_transform = prev_pose.inverseTimes(current_pose);
+    //         file << "EDGE_SE3:QUAT " << id_counter-1 << " " << id_counter
+    //                                                 << " " << relative_transform.getOrigin().getX()
+    //                                                 << " " << relative_transform.getOrigin().getY()
+    //                                                 << " " << relative_transform.getOrigin().getZ()
+    //                                                 << " " << relative_transform.getRotation().getX()
+    //                                                 << " " << relative_transform.getRotation().getY()
+    //                                                 << " " << relative_transform.getRotation().getZ()
+    //                                                 << " " << relative_transform.getRotation().getW()
+    //                                                 << " " << 1
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 1
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 1
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 1
+    //                                                 << " " << 0
+    //                                                 << " " << 0
+    //                                                 << " " << 1
+    //                                                 << " " << 0
+    //                                                 << " " << 1 << std::endl;
+    //     }
+    //     firstPose = false;
+    //     ++id_counter;
+    // }
+
+
+    // file2 << odomAftMapped.header.stamp << "," <<
+    //         id_counter-1 << "," <<
+    //         odomAftMapped.header.stamp << "," <<
+    //         odomAftMapped.pose.pose.position.x << "," <<
+    //         odomAftMapped.pose.pose.position.y << "," <<
+    //         odomAftMapped.pose.pose.position.z << "," <<
+    //         odomAftMapped.pose.pose.orientation.x << "," <<
+    //         odomAftMapped.pose.pose.orientation.y << "," <<
+    //         odomAftMapped.pose.pose.orientation.z << "," <<
+    //         odomAftMapped.pose.pose.orientation.w << "," <<
+    //         odomAftMapped.twist.twist.linear.x << "," <<
+    //         odomAftMapped.twist.twist.linear.y << "," <<
+    //         odomAftMapped.twist.twist.linear.z << "," <<
+    //         odomAftMapped.twist.twist.angular.x << "," <<
+    //         odomAftMapped.twist.twist.angular.y << "," <<
+    //         odomAftMapped.twist.twist.angular.z << std::endl;
+}
+
+void publish_mavros(const ros::Publisher & mavros_pose_publisher)
+{
+    msg_body_pose.header.stamp = ros::Time::now();
+    msg_body_pose.header.frame_id = "camera_odom_frame";
+    set_posestamp(msg_body_pose.pose);
+    mavros_pose_publisher.publish(msg_body_pose);
+}
+
+void publish_path(const ros::Publisher pubPath, ros::Time & poseTime)
+{
+    set_posestamp(msg_body_pose.pose);
+    msg_body_pose.header.stamp = ros::Time::now();
+    // msg_body_pose.header.stamp = poseTime;
+    msg_body_pose.header.frame_id = "camera_init";
+    path.poses.push_back(msg_body_pose);
+    pubPath.publish(path);
+
     if (file.is_open())
     {
-        file << "VERTEX_SE3:QUAT " << id_counter << " " << odomAftMapped.pose.pose.position.x
-                                                << " " << odomAftMapped.pose.pose.position.y
-                                                << " " << odomAftMapped.pose.pose.position.z
-                                                << " " << odomAftMapped.pose.pose.orientation.x
-                                                << " " << odomAftMapped.pose.pose.orientation.y
-                                                << " " << odomAftMapped.pose.pose.orientation.z
-                                                << " " << odomAftMapped.pose.pose.orientation.w << std::endl;
+        file << "VERTEX_SE3:QUAT " << id_counter << " " << msg_body_pose.pose.position.x
+                                                << " " << msg_body_pose.pose.position.y
+                                                << " " << msg_body_pose.pose.position.z
+                                                << " " << msg_body_pose.pose.orientation.x
+                                                << " " << msg_body_pose.pose.orientation.y
+                                                << " " << msg_body_pose.pose.orientation.z
+                                                << " " << msg_body_pose.pose.orientation.w << std::endl;
 
-        if (!firstPose)
+        if (path.poses.size() > 1)
         {
-            geometry_msgs::Pose prev_msg_body_pose = prev_pose.pose.pose;
+            geometry_msgs::PoseStamped prev_msg_body_pose = path.poses[path.poses.size()-2];
             tf::Transform prev_pose;
-            prev_pose.setOrigin(tf::Vector3(prev_msg_body_pose.position.x, prev_msg_body_pose.position.y, prev_msg_body_pose.position.z));
-            prev_pose.setRotation(tf::Quaternion(prev_msg_body_pose.orientation.x, prev_msg_body_pose.orientation.y, prev_msg_body_pose.orientation.z, prev_msg_body_pose.orientation.w));
+            prev_pose.setOrigin(tf::Vector3(prev_msg_body_pose.pose.position.x, prev_msg_body_pose.pose.position.y, prev_msg_body_pose.pose.position.z));
+            prev_pose.setRotation(tf::Quaternion(prev_msg_body_pose.pose.orientation.x, prev_msg_body_pose.pose.orientation.y, prev_msg_body_pose.pose.orientation.z, prev_msg_body_pose.pose.orientation.w));
             tf::Transform current_pose;
-            current_pose.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x, odomAftMapped.pose.pose.position.y, odomAftMapped.pose.pose.position.z));
-            current_pose.setRotation(tf::Quaternion(odomAftMapped.pose.pose.orientation.x, odomAftMapped.pose.pose.orientation.y, odomAftMapped.pose.pose.orientation.z, odomAftMapped.pose.pose.orientation.w));
+            current_pose.setOrigin(tf::Vector3(msg_body_pose.pose.position.x, msg_body_pose.pose.position.y, msg_body_pose.pose.position.z));
+            current_pose.setRotation(tf::Quaternion(msg_body_pose.pose.orientation.x, msg_body_pose.pose.orientation.y, msg_body_pose.pose.orientation.z, msg_body_pose.pose.orientation.w));
             tf::Transform relative_transform = prev_pose.inverseTimes(current_pose);
             file << "EDGE_SE3:QUAT " << id_counter-1 << " " << id_counter
                                                     << " " << relative_transform.getOrigin().getX()
@@ -994,66 +1086,51 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
                                                     << " " << 1
                                                     << " " << 0
                                                     << " " << 1 << std::endl;
+
         }
-        firstPose = false;
         ++id_counter;
     }
 
-
-    file2 << odomAftMapped.header.stamp << "," <<
+    if (file2.is_open())
+    {
+        file2 << last_lidar_timestep.toNSec() << "," <<
             id_counter-1 << "," <<
-            odomAftMapped.header.stamp << "," <<
-            odomAftMapped.pose.pose.position.x << "," <<
-            odomAftMapped.pose.pose.position.y << "," <<
-            odomAftMapped.pose.pose.position.z << "," <<
-            odomAftMapped.pose.pose.orientation.x << "," <<
-            odomAftMapped.pose.pose.orientation.y << "," <<
-            odomAftMapped.pose.pose.orientation.z << "," <<
-            odomAftMapped.pose.pose.orientation.w << "," <<
-            odomAftMapped.twist.twist.linear.x << "," <<
-            odomAftMapped.twist.twist.linear.y << "," <<
-            odomAftMapped.twist.twist.linear.z << "," <<
-            odomAftMapped.twist.twist.angular.x << "," <<
-            odomAftMapped.twist.twist.angular.y << "," <<
-            odomAftMapped.twist.twist.angular.z << std::endl;
-}
-
-void publish_mavros(const ros::Publisher & mavros_pose_publisher)
-{
-    msg_body_pose.header.stamp = ros::Time::now();
-    msg_body_pose.header.frame_id = "camera_odom_frame";
-    set_posestamp(msg_body_pose.pose);
-    mavros_pose_publisher.publish(msg_body_pose);
-}
-
-void publish_path(const ros::Publisher pubPath, ros::Time & poseTime)
-{
-    set_posestamp(msg_body_pose.pose);
-    msg_body_pose.header.stamp = ros::Time::now();
-    // msg_body_pose.header.stamp = poseTime;
-    msg_body_pose.header.frame_id = "camera_init";
-    path.poses.push_back(msg_body_pose);
-    pubPath.publish(path);
+            last_lidar_timestep.toNSec() << "," <<
+            msg_body_pose.pose.position.x << "," <<
+            msg_body_pose.pose.position.y << "," <<
+            msg_body_pose.pose.position.z << "," <<
+            msg_body_pose.pose.orientation.x << "," <<
+            msg_body_pose.pose.orientation.y << "," <<
+            msg_body_pose.pose.orientation.z << "," <<
+            msg_body_pose.pose.orientation.w << "," <<
+            0 << "," <<
+            0 << "," <<
+            0 << "," <<
+            0  << "," <<
+            0  << "," <<
+            0  << std::endl;
+    }
 }
 
 void constraint_cbk(const std_msgs::String& msg)
 {
     if (file.is_open())
     {
-        std::string constraint;
-        std::string in;
-        std::stringstream ss(msg.data);
-        getline(ss, in, ',');
-        constraint = in;
-        getline(ss, in, ',');
-        int prev_pose_id = stoi(in);
-        getline(ss, in, ',');
-        int current_pose_id = stoi(in);
-        constraint = constraint + " " + std::to_string(path_to_odom_map[prev_pose_id]) + " " + std::to_string(path_to_odom_map[current_pose_id]);
-        getline(ss, in, ',');
-        constraint = constraint + " " + in;
-        file << constraint.c_str() << std::endl;
-        ROS_INFO("%s", constraint.c_str());
+        // std::string constraint;
+        // std::string in;
+        // std::stringstream ss(msg.data);
+        // getline(ss, in, ',');
+        // constraint = in;
+        // getline(ss, in, ',');
+        // int prev_pose_id = stoi(in);
+        // getline(ss, in, ',');
+        // int current_pose_id = stoi(in);
+        // constraint = constraint + " " + std::to_string(path_to_odom_map[prev_pose_id]) + " " + std::to_string(path_to_odom_map[current_pose_id]);
+        // getline(ss, in, ',');
+        // constraint = constraint + " " + in;
+        // file << constraint.c_str() << std::endl;
+        // ROS_INFO("%s", constraint.c_str());
+        file << msg.data.c_str() << std::endl;
     }
 }
 
