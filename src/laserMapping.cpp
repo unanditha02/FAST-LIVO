@@ -1231,6 +1231,8 @@ int main(int argc, char** argv)
             ("/path", 10);
 
     file.open(ros::package::getPath("fast_livo") + "/src/g2o_pose_files/input_poses.g2o");
+    
+
 
 #ifdef DEPLOY
     ros::Publisher mavros_pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
@@ -1916,6 +1918,26 @@ int main(int argc, char** argv)
     }
     fclose(fp2);
     file.close();
+
+    ofstream file2;
+    file2.open(ros::package::getPath("fast_livo") + "/results/est_odom.csv");
+    file2 << "\%time,field.header.seq,field.header.stamp,field.pose.position.x,field.pose.position.y,field.pose.position.z,field.pose.orientation.x,field.pose.orientation.y,field.pose.orientation.z,field.pose.orientation.w" << std::endl;
+
+    for (int i = 0; i < path.poses.size(); ++i)
+    {
+        file2 << path.poses[i].header.stamp << "," <<
+            i << "," <<
+            path.poses[i].header.stamp << "," <<
+            path.poses[i].pose.position.x << "," <<
+            path.poses[i].pose.position.y << "," <<
+            path.poses[i].pose.position.z << "," <<
+            path.poses[i].pose.orientation.x << "," <<
+            path.poses[i].pose.orientation.y << "," <<
+            path.poses[i].pose.orientation.z << "," <<
+            path.poses[i].pose.orientation.w << std::endl;
+    }
+
+    file2.close();
     if (!t.empty())
     {
         // plt::named_plot("incremental time",t,s_vec2);

@@ -223,6 +223,7 @@ void LoopDetection::calculateFPFH()
       if (distance < distancethreshold*0.25)
       {
       //   // Print drift over time in coordinate frame values 
+        ROS_INFO("Distance Threshold: %f", distancethreshold);
         ROS_INFO("Loop Detected at t = %f, Euclidean drift calculated: %f", old_keyframe_times[i], distance);
         loop_detected = true;
         if (similarity > best_similarity_score)

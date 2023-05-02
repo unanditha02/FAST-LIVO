@@ -110,7 +110,7 @@ def prepare_dataset(source, target, voxel_size):
     # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
     #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
     # source.transform(trans_init)
-    draw_registration_result(source, target, np.identity(4))
+    # draw_registration_result(source, target, np.identity(4))
 
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
     target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
@@ -154,8 +154,8 @@ def handle_global_registration(req):
     result_icp = refine_registration(source_down, target_down, source_fpfh, target_fpfh,
                                      voxel_size, result_fast)
     # print("Fast global registration took %.3f sec.\n" % (time.time() - start))
-    draw_registration_result(source_down, target_down,
-                             result_icp.transformation)
+    # draw_registration_result(source_down, target_down,
+                            #  result_icp.transformation)
     print(result_icp.transformation)
     rotation_mat = copy.deepcopy(result_icp.transformation[0:3, 0:3])
     r = R.from_matrix(rotation_mat)
