@@ -157,6 +157,7 @@ def handle_global_registration(req):
     # draw_registration_result(source_down, target_down,
                             #  result_icp.transformation)
     print(result_icp.transformation)
+    print(result_icp.inlier_rmse)
     rotation_mat = copy.deepcopy(result_icp.transformation[0:3, 0:3])
     r = R.from_matrix(rotation_mat)
     t = Transform()
