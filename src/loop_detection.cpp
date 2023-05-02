@@ -261,8 +261,8 @@ void LoopDetection::calculateFPFH()
       current_pose.setRotation(tf::Quaternion(best_new_pose.orientation.x, best_new_pose.orientation.y, best_new_pose.orientation.z, best_new_pose.orientation.w));
       tf::Transform relative_transform = prev_pose.inverseTimes(world_transform.inverseTimes(current_pose));
       std_msgs::String msg;
-      msg.data = "EDGE_SE3:QUAT " + std::to_string(best_old_pose_idx) + " " + std::to_string(best_new_pose_idx)
-                                                + " " + std::to_string(relative_transform.getOrigin().getX())
+      msg.data = "EDGE_SE3:QUAT," + std::to_string(best_old_pose_idx) + "," + std::to_string(best_new_pose_idx)
+                                                + "," + std::to_string(relative_transform.getOrigin().getX())
                                                 + " " + std::to_string(relative_transform.getOrigin().getY())
                                                 + " " + std::to_string(relative_transform.getOrigin().getZ())
                                                 + " " + std::to_string(relative_transform.getRotation().getX())
@@ -291,7 +291,7 @@ void LoopDetection::calculateFPFH()
                                                 + " " + std::to_string(0)
                                                 + " " + std::to_string(1);
       ROS_INFO("Sending constraint!");
-      ROS_INFO("%s", msg.data.c_str());
+      // ROS_INFO("%s", msg.data.c_str());
       pose_graph_constraint_pub_.publish(msg);
     }
     else

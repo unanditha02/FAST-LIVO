@@ -57,23 +57,23 @@ if options.optimized_poses != '':
 figure = plot.figure()
 
 if poses_original is not None:
-  axes = plot.subplot(1, 2, 1, projection='3d')
+  axes = plot.subplot(1, 1, 1, projection='3d')
   plot.plot(poses_original[:, 0], poses_original[:, 1], poses_original[:, 2],
             '-', alpha=0.5, color="green")
-  plot.title('Original')
-  if options.axes_equal:
-    axes.set_aspect('equal')
-    set_axes_equal(axes)
+  # plot.title('Original')
+  # if options.axes_equal:
+  #   axes.set_aspect('equal')
+  #   set_axes_equal(axes)
 
 
 if poses_optimized is not None:
-  axes = plot.subplot(1, 2, 2, projection='3d')
+  # axes = plot.subplot(1, 2, 2, projection='3d')
   plot.plot(poses_optimized[:, 0], poses_optimized[:, 1], poses_optimized[:, 2],
             '-', alpha=0.5, color="blue")
-  plot.title('Optimized')
-  if options.axes_equal:
-    axes.set_aspect('equal')
-    set_axes_equal(plot.gca())
+  # plot.title('Optimized')
+  # if options.axes_equal:
+  #   axes.set_aspect('equal')
+  #   set_axes_equal(plot.gca())
 
 
 # Show the plot and wait for the user to close.
